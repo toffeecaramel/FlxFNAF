@@ -6,6 +6,7 @@ import flixel.FlxState;
 import flixel.FlxCamera;
 import flixel.math.FlxMath;
 import flixel.util.FlxColor;
+import flixel.text.FlxText;
 import obj.*;
 
 class PlayState extends FlxState
@@ -26,9 +27,14 @@ class PlayState extends FlxState
 	public var office:FlxSprite;
 	public var cam:FlxSprite;
 	public var mask:FlxSprite;
+	public var battery:FlxSprite;
 
 	public var camBtn:ButtonInteract;
 	public var maskBtn:ButtonInteract;
+
+	#if debug
+	var debugTxt = new FlxText();
+	#end
 
 	// cams
 	public var camHUD:FlxCamera = new FlxCamera();
@@ -38,6 +44,8 @@ class PlayState extends FlxState
 	override public function create():Void
 	{
 		super.create();
+
+		instance = this;
 
 		camGAME.bgColor = 0xFF000000;
 		camHUD.bgColor = 0x00000000;
@@ -55,7 +63,7 @@ class PlayState extends FlxState
 		mask.animation.add('down', [0,1,2,3,4,5,6,7,8], false);
 		mask.camera = camHUD;
 		mask.screenCenter();
-		mask.visible = false;
+		mask.alpha = 0.0001;
 		mask.animation.onFinish.add(_ -> mask.visible = maskBool);
 		add(mask);
 
@@ -76,13 +84,44 @@ class PlayState extends FlxState
 		cam.animation.add('appear', [0,1,2,3,4,5,6,7,8,9,10], false);
 		cam.camera = camHUD; //lol cam.camera
 		cam.screenCenter();
-		cam.visible = false;
-		cam.animation.onFinish.add(_ -> cam.visible = false);
+		cam.alpha = 0.0001;
+		cam.animation.onFinish.add(_ -> cam.alpha = 0.0001);
 		add(cam);
 
-		FlxG.mouse.visible = FlxG.mouse.useSystemCursor = true;
+		battery = new FlxSprite().loadGraphic("assets/images/game/UI/flashlight-battery.png", true, 100, 50);
+		battery.animation.add('o', [4,3,2,1,0], false);
+		battery.animation.play('o', true);
+		battery.camera = camALT;
+		add(battery);
+		battery.setPosition(32, 32);
+		battery.blend = ADD;
 
+		#if debug
+		debugTxt.setFormat('assets/fonts/OCRAStd.otf', 24, RIGHT);
+		debugTxt.text = '';
+		debugTxt.textField.antiAliasType = ADVANCED;
+		debugTxt.textField.sharpness = 400;
+		debugTxt.camera = camALT;
+		add(debugTxt);
+		#end
+
+		// -*-*-*-*- //
+		FlxG.mouse.visible = FlxG.mouse.useSystemCursor = true;
 		camGAME.setScrollBoundsRect(0, 0, office.width, FlxG.height);
+
+		NightManager.init(1);
+		NightManager.onBatteryChanged.add((remaining, max)->{
+			//trace('battery remaining: $remaining -- $max');
+			#if debug
+			debugTxt.text = 'Battery State: ${NightManager.flashlightOn}\n' + 
+			'Remaining: ${Std.int(remaining)} / $max';
+			debugTxt.x = FlxG.width - debugTxt.width;
+			#end
+
+			battery.animation.curAnim.curFrame = NightManager.getBatteryBars() - 1;
+		});
+		// for now this is just here for testing purposes!
+		NightManager.setFlashOn(true);
 	}
 
 	public var camBool:Bool = false;
@@ -90,6 +129,8 @@ class PlayState extends FlxState
 	override public function update(elapsed:Float):Void
 	{
 		super.update(elapsed);
+		NightManager.update(elapsed);
+
 		final mx = FlxG.mouse.viewX;
 		var s = 0.0;
 
@@ -114,7 +155,7 @@ class PlayState extends FlxState
 		camBool = !camBool;
 		maskBtn.interactable = !camBool;
 		cam.animation.play('appear', true, !camBool);
-		cam.visible = true;
+		cam.alpha = 1;
 		FlxG.sound.play('assets/sounds/UI/cam_${(camBool) ? 'enter' : 'leave'}.wav');
 	}
 
@@ -123,7 +164,7 @@ class PlayState extends FlxState
 		maskBool = !maskBool;
 		camBtn.interactable = !maskBool;
 		mask.animation.play('down', true, !maskBool);
-		mask.visible = true;
+		mask.alpha = 1;
 		FlxG.sound.play('assets/sounds/UI/mask_${(maskBool) ? 'enter' : 'leave'}.wav');
 	}
 
